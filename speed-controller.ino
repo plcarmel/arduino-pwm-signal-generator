@@ -1,42 +1,37 @@
 /* pulse width */
-#define PERIOD 100000L  /*  µs  */
-#define OFF_WIDTH 800L  /*  µs  */
-#define MIN_WIDTH 100L  /*  µs  */
-#define MAX_WIDTH 5000L  /*  µs  */
+#define PERIOD 50000.0  /*  µs  */
+#define OFF_WIDTH 800.0  /*  µs  */
+#define MIN_WIDTH 1100.0  /*  µs  */
+#define MAX_WIDTH 1600.0  /*  µs  */
 
 /* rate of pulse width change */
-#define MIN_ACCELERATION 10L  /*  µ/s  */
-#define MAX_ACCELERATION 10000L  /*  µ/s  */
+#define MIN_ACCELERATION 10.0  /*  µ/s  */
+#define MAX_ACCELERATION 5000.0  /*  µ/s  */
 
 #define BUTTON_IN 2
 #define SPEED_IN 1
-#define ACCELERATION_IN 2
+#define ACCELERATION_IN 3
 #define STATE_LED_OUT 12
 #define PWM_OUT 13
 
 #define BUTTON_DEBOUNCING_TIME 100L /*  ms  */
 
-#define WIDTH_RANGE (MAX_WIDTH - MIN_WIDTH)
-#define WIDTH_HALF_RANGE (WIDTH_RANGE >> 1)
+#define WIDTH_RANGE ((MAX_WIDTH - MIN_WIDTH))
+#define ACCELERATION_RANGE ((MAX_ACCELERATION - MIN_ACCELERATION))
 
-#define ACCELERATION_RANGE (MAX_ACCELERATION - MIN_ACCELERATION)
-#define ACCELERATION_HALF_RANGE (ACCELERATION_RANGE >> 1)
-
-#define SECOND_TO_MICROS 1000000L
+#define SECOND_TO_MICROS 1000000.0
 
 volatile unsigned long lastButtonInterrupt = 0;
 volatile bool runState = false;
 
-int readRequestedWidth() {
-  return MIN_WIDTH
-    + (WIDTH_RANGE * analogRead(SPEED_IN) + WIDTH_HALF_RANGE) / 1023L;
+float readRequestedWidth() {
+  return MIN_WIDTH + WIDTH_RANGE * analogRead(SPEED_IN) / 1023.0;
 }
 
-int readRequestedAcceleration() {
-  return MIN_ACCELERATION
-    + (ACCELERATION_RANGE * analogRead(ACCELERATION_IN) + ACCELERATION_HALF_RANGE) / 1023L;
+float readRequestedAcceleration() {
+  int val = analogRead(ACCELERATION_IN);
+  return val > 500 ? INFINITY : MIN_ACCELERATION + ACCELERATION_RANGE * val / 500.0;
 }
-
 
 void onButtonDebounced() {
   unsigned long currentTime = micros();
@@ -58,16 +53,15 @@ void sendPulse(long width) {
 }
 
 long lastTime = micros();
-long lastWidth = OFF_WIDTH;
+float lastWidth = OFF_WIDTH;
 
 void updateWidth() {
-  long requestedWidth = runState ? readRequestedWidth() : OFF_WIDTH;
-  long requestedAcceleration = readRequestedAcceleration();
-  long diff = requestedWidth - lastWidth;
-  long dir = constrain(diff, -1L, 1L);
-  long delta = (dir * requestedAcceleration * PERIOD + SECOND_TO_MICROS >> 1) / SECOND_TO_MICROS;
-  if (!delta) delta = dir;
-  long a = dir * diff;
+  float requestedWidth = runState ? readRequestedWidth() : OFF_WIDTH;
+  float requestedAcceleration = readRequestedAcceleration();
+  float diff = requestedWidth - lastWidth;
+  float dir = diff ? (diff / abs(diff)) : 0.0;
+  float delta = requestedAcceleration == INFINITY ? diff : (dir * requestedAcceleration * PERIOD) / SECOND_TO_MICROS;
+  float a = dir * diff;
   delta = constrain(delta, -a, a);
   // Serial.print("last: ");
   // Serial.print(lastWidth);
@@ -104,6 +98,6 @@ void setup() {
 
 void loop() {
   updateWidth();
-  sendPulse(lastWidth * 10L);
+  sendPulse(lastWidth);
   waitNextPeriod();
 }
