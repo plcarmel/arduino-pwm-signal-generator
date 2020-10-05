@@ -1,16 +1,17 @@
 /* pulse width */
 #define PERIOD 50000.0  /*  µs  */
 #define OFF_WIDTH 800.0  /*  µs  */
-#define MIN_WIDTH 1100.0  /*  µs  */
+#define MIN_WIDTH 1000.0  /*  µs  */
 #define MAX_WIDTH 1600.0  /*  µs  */
 
 /* rate of pulse width change */
 #define MIN_ACCELERATION 10.0  /*  µ/s  */
-#define MAX_ACCELERATION 5000.0  /*  µ/s  */
+#define MAX_ACCELERATION 1000.0  /*  µ/s  */
+#define ACCELERATION_LINEAR_MAX 1000 /* 0 - 1023 */
 
 #define BUTTON_IN 2
 #define SPEED_IN 1
-#define ACCELERATION_IN 3
+#define ACCELERATION_IN 5
 #define STATE_LED_OUT 12
 #define PWM_OUT 13
 
@@ -30,7 +31,10 @@ float readRequestedWidth() {
 
 float readRequestedAcceleration() {
   int val = analogRead(ACCELERATION_IN);
-  return val > 500 ? INFINITY : MIN_ACCELERATION + ACCELERATION_RANGE * val / 500.0;
+  Serial.println(val); 
+  return val > ACCELERATION_LINEAR_MAX
+    ? INFINITY
+    : MIN_ACCELERATION + ACCELERATION_RANGE * (float)val / (float)ACCELERATION_LINEAR_MAX;
 }
 
 void onButtonDebounced() {
