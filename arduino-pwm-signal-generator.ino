@@ -1,42 +1,42 @@
 // pulse width
-#define PERIOD 50000.0  /* µs */
-#define OFF_WIDTH 800.0  /* µs */
-#define MIN_WIDTH 1000.0  /* µs */
-#define MAX_WIDTH 1600.0  /* µs */
-#define WIDTH_RANGE (MAX_WIDTH - MIN_WIDTH)
+const float PERIOD = 50000; // µs 
+const float OFF_WIDTH = 800; // µs 
+const float MIN_WIDTH = 850; // µs 
+const float MAX_WIDTH = 1600; // µs 
+const float WIDTH_RANGE = MAX_WIDTH - MIN_WIDTH;
 
 // rate of pulse width change
-#define MIN_ACCELERATION 10.0  /* µ/s */
-#define MAX_ACCELERATION 1000.0  /* µ/s */
-#define ACCELERATION_LINEAR_MAX 1000 /* 0 - 1023 */
-#define ACCELERATION_RANGE (MAX_ACCELERATION - MIN_ACCELERATION)
+const float MIN_ACCELERATION = 10; // µ/s 
+const float MAX_ACCELERATION = 1000; // µ/s 
+const int ACCELERATION_LINEAR_MAX = 1000; // 0 - 1023
+const float ACCELERATION_RANGE = MAX_ACCELERATION - MIN_ACCELERATION;
 
-#define BUTTON_IN 2 /* connected to a button that sets the pin to the ground when pressed */
-#define SPEED_IN 1 /* pin connected to a 4.7K potentiometer through a small 10 ohms series resistance */
-#define ACCELERATION_IN 5 /* pin connected to a 4.7K potentiometer through a small 10 ohms series resistance */
-#define STATE_LED_OUT 12 /* connected to a led through a 10K series resistance */
-#define PWM_OUT 13 /* output signal */
+const int BUTTON_IN = 2; // connected to a button that sets the pin to ground when pressed
+const int SPEED_IN = 1; // pin connected to a 4.7K potentiometer through a 10 ohms series resistance
+const int ACCELERATION_IN = 5; // pin connected to a 4.7K potentiometer through a 10 ohms series resistance
+const int STATE_LED_OUT = 12; // connected to a led through a 10K series resistance
+const int PWM_OUT = 13; // output signal
 
 // to avoid multiple triggers when the button is pressed
-#define BUTTON_DEBOUNCING_TIME 500L /* ms */
+const long BUTTON_DEBOUNCING_TIME = 500; // ms
 
 volatile unsigned long lastButtonInterrupt = 0;
 volatile bool runState = false;
 
 float readRequestedWidth() {
-  return MIN_WIDTH + WIDTH_RANGE * analogRead(SPEED_IN) / 1023.0;
+  return MIN_WIDTH + WIDTH_RANGE * analogRead(SPEED_IN) / 1023;
 }
 
 float readRequestedAcceleration() {
-  int val = analogRead(ACCELERATION_IN);
+  const int val = analogRead(ACCELERATION_IN);
   return val > ACCELERATION_LINEAR_MAX
     ? INFINITY
-    : MIN_ACCELERATION + ACCELERATION_RANGE * (float)val / (float)ACCELERATION_LINEAR_MAX;
+    : MIN_ACCELERATION + ACCELERATION_RANGE * val / ACCELERATION_LINEAR_MAX;
 }
 
 void onButtonDebounced() {
-  unsigned long currentTime = micros();
-  if ((long)currentTime - lastButtonInterrupt >= BUTTON_DEBOUNCING_TIME * 1000) {
+  const long currentTime = micros();
+  if (currentTime - lastButtonInterrupt >= BUTTON_DEBOUNCING_TIME * 1000) {
     onButton();
     lastButtonInterrupt = currentTime;
   }
@@ -47,30 +47,31 @@ void onButton() {
   digitalWrite(STATE_LED_OUT, runState);
 }
 
-void sendPulse(long width) {
+void sendPulse(const long width) {
   digitalWrite(PWM_OUT, 1);
   delayMicroseconds(width);
   digitalWrite(PWM_OUT, 0);
 }
 
 long lastTime = micros();
-float lastWidth = OFF_WIDTH;
+float currentWidth = OFF_WIDTH;
 
 void updateWidth() {
-  float requestedWidth = runState ? readRequestedWidth() : OFF_WIDTH;
-  float requestedAcceleration = readRequestedAcceleration();
-  float diff = requestedWidth - lastWidth;
-  float dir = diff ? (diff / abs(diff)) : 0.0;
-  float delta = requestedAcceleration == INFINITY ? diff : (dir * requestedAcceleration * PERIOD) / 1000000.0;
-  float a = dir * diff;
-  delta = constrain(delta, -a, a);
-  lastWidth = lastWidth + delta;
+  const float requestedWidth = runState ? readRequestedWidth() : OFF_WIDTH;
+  const float requestedAcceleration = readRequestedAcceleration();
+  const float w = runState && currentWidth < MIN_WIDTH ? MIN_WIDTH : currentWidth;
+  const float diff = requestedWidth - w;
+  const float dir = diff ? diff / abs(diff) : 0;
+  const float unconstrainedDelta = requestedAcceleration == INFINITY ? diff : (dir * requestedAcceleration * PERIOD) / 1000000;
+  const float limit = dir * diff;
+  const float delta = constrain(unconstrainedDelta, -limit, limit);
+  const float unconstrainedWidth = w + delta;
+  currentWidth = unconstrainedWidth < MIN_WIDTH ? OFF_WIDTH : unconstrainedWidth;
 }
 
 void waitNextPeriod() {
-  long newTime;
   while (true) {
-    newTime = micros();
+    const long newTime = micros();
     if (newTime - lastTime >= PERIOD) {
       lastTime = lastTime + PERIOD;
       return;
@@ -88,6 +89,6 @@ void setup() {
 
 void loop() {
   updateWidth();
-  sendPulse(lastWidth);
+  sendPulse(currentWidth);
   waitNextPeriod();
 }
