@@ -59,14 +59,20 @@ float currentWidth = OFF_WIDTH;
 void updateWidth() {
   const float requestedWidth = runState ? readRequestedWidth() : OFF_WIDTH;
   const float requestedAcceleration = readRequestedAcceleration();
-  const float w = runState && currentWidth < MIN_WIDTH ? MIN_WIDTH : currentWidth;
+  const float w =
+    runState && currentWidth < MIN_WIDTH
+    ? MIN_WIDTH
+    : currentWidth;
   const float diff = requestedWidth - w;
   const float dir = diff ? diff / abs(diff) : 0;
-  const float unconstrainedDelta = requestedAcceleration == INFINITY ? diff : (dir * requestedAcceleration * PERIOD) / 1000000;
+  const float unconstrainedDelta =
+    requestedAcceleration == INFINITY
+    ? diff
+    : (dir * requestedAcceleration * PERIOD) / 1000000;
   const float limit = dir * diff;
   const float delta = constrain(unconstrainedDelta, -limit, limit);
-  const float unconstrainedWidth = w + delta;
-  currentWidth = unconstrainedWidth < MIN_WIDTH ? OFF_WIDTH : unconstrainedWidth;
+  const float w2 = w + delta;
+  currentWidth = w2 < MIN_WIDTH ? OFF_WIDTH : w2;
 }
 
 void waitNextPeriod() {
